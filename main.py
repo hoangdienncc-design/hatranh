@@ -7,13 +7,12 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = "ha_tranh_verify_2026"
 
-# === Lấy từ biến môi trường — KHÔNG VIẾT TRỰC TIẾP KHÓA VÀO CODE ===
+# Lấy từ biến môi trường — tự động lấy trên Render
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Kiểm tra xem có được đặt chưa
 if not PAGE_ACCESS_TOKEN or not GEMINI_API_KEY:
-    raise ValueError("Thiếu biến môi trường PAGE_ACCESS_TOKEN hoặc GEMINI_API_KEY")
+    raise ValueError("Thiếu biến môi trường! Kiểm tra lại trên Render.")
 
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
