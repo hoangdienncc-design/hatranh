@@ -12,7 +12,6 @@ VERIFY_TOKEN = "ha_tranh_verify_2026"
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Kiểm tra biến môi trường
 print("=== KIỂM TRA CẤU HÌNH ===")
 if not PAGE_ACCESS_TOKEN:
     print("❌ PAGE_ACCESS_TOKEN chưa đặt!")
@@ -48,7 +47,7 @@ def delete_data():
     return "<h1>Yêu cầu xóa dữ liệu</h1><p>Liên hệ: hoangdienncc@gmail.com</p>", 200
 
 # ==========================================
-# WEBHOOK — ĐƯỜNG DẪN CHÍNH
+# WEBHOOK — ĐÃ SỬA LỖI NHẬN TIN NHẮN
 # ==========================================
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -58,19 +57,16 @@ def webhook():
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
-        
         print(f"mode={mode}, token={token}, challenge={challenge}")
         
         if mode == "subscribe" and token == VERIFY_TOKEN:
             print("✅ Xác minh Webhook THÀNH CÔNG!")
             return str(challenge), 200
-        else:
-            print("❌ Xác minh THẤT BẠI — Kiểm tra lại VERIFY_TOKEN")
-            return "Verification failed", 403
+        return "Verification failed", 403
 
-    # === Nhận tin nhắn từ Facebook ===
+    # === NHẬN TIN NHẮN ===
     data = request.get_json()
-    print(f"📩 Dữ liệu nhận được: {data}")
+    print(f"📩 Dữ liệu đầy đủ: {data}")
 
     if data.get("object") == "page":
         for entry in data.get("entry", []):
@@ -83,10 +79,14 @@ def webhook():
                     print("ℹ️ Bỏ qua tin nhắn từ chính bot")
                     return "OK", 200
                 
-                message_text = message.get("text", "").strip()
-                print(f"💬 Tin nhắn từ {sender_id}: {message_text}")
+                # === SỬA: Nhận tin nhắn chính xác hơn ===
+                message_text = message.get("text")
+                print(f"💬 Nội dung tin nhắn: [{message_text}]")
 
-                if message_text:
+                if message_text and isinstance(message_text, str) and message_text.strip():
+                    noi_dung = message_text.strip()
+                    print(f"✅ Xử lý câu hỏi: {noi_dung}")
+                    
                     # Gọi AI
                     try:
                         if sender_id not in chat_sessions:
@@ -94,21 +94,22 @@ def webhook():
                         
                         cau_hoi = (
                             "Bạn là chuyên gia tư vấn đầu tư, đấu thầu và pháp lý doanh nghiệp. "
-                            "Trả lời rõ ràng, ngắn gọn, lịch sự bằng tiếng Việt chuẩn.\n\n"
-                            f"Khách hỏi: {message_text}"
+                            "Trả lời ngắn gọn, rõ ràng, lịch sự bằng tiếng Việt chuẩn.\n\n"
+                            f"Khách hỏi: {noi_dung}"
                         )
                         phan_hoi = chat_sessions[sender_id].send_message(cau_hoi)
                         tra_loi = phan_hoi.text.strip()
-                        print(f"🤖 Câu trả lời: {tra_loi}")
+                        print(f"🤖 Trả lời: {tra_loi}")
                     except Exception as e:
-                        tra_loi = f"Xin lỗi, hệ thống đang bận: {str(e)}"
-                        print(f"❌ Lỗi gọi AI: {e}")
+                        tra_loi = f"Xin lỗi, có lỗi xảy ra: {str(e)}"
+                        print(f"❌ Lỗi AI: {e}")
 
-                    # Gửi trả lời về Facebook
+                    # Gửi trả lời
                     gui_ket_qua = gui_tin_facebook(sender_id, tra_loi)
-                    print(f"📤 Kết quả gửi FB: {gui_ket_qua}")
+                    print(f"📤 Kết quả gửi: {gui_ket_qua}")
                 else:
-                    gui_tin_facebook(sender_id, "Xin lỗi, tôi chưa xem được ảnh/file. Vui lòng gõ chữ nhé 😊")
+                    # Không có nội dung chữ
+                    gui_tin_facebook(sender_id, "Tôi chưa xem được ảnh/file. Bạn vui lòng gõ chữ hỏi nhé 😊")
     return "EVENT_RECEIVED", 200
 
 # ==========================================
@@ -122,7 +123,7 @@ def gui_tin_facebook(nguoi_nhan_id, noi_dung):
     }
     try:
         res = requests.post(url, json=du_lieu, timeout=10)
-        return f"Thành công - Mã trạng thái: {res.status_code}"
+        return f"Thành công - Mã: {res.status_code}"
     except Exception as e:
         return f"Lỗi: {str(e)}"
 
