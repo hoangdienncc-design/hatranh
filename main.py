@@ -18,16 +18,15 @@ if not PAGE_ACCESS_TOKEN:
 else:
     print("✅ PAGE_ACCESS_TOKEN: OK")
 
+client = None
+MODEL_NAME = "gemini-2.0-flash"
+
 if not GEMINI_API_KEY:
     print("❌ GEMINI_API_KEY chưa đặt!")
-    model = None
 else:
-    print("✅ GEMINI_API_KEY: OK")
-    # === SỬA: Cách dùng thư viện mới ===
+    print(f"✅ GEMINI_API_KEY: OK | Model: {MODEL_NAME}")
+    # === Cách dùng ĐÚNG của thư viện mới ===
     client = genai.Client(api_key=GEMINI_API_KEY)
-    model_name = "gemini-2.0-flash"
-
-chat_sessions = {}
 
 # ==========================================
 # CÁC TRANG THÔNG TIN
@@ -90,7 +89,7 @@ def webhook():
                 noi_dung = message_text.strip()
                 print(f"✅ Xử lý câu hỏi: {noi_dung}")
 
-                if not GEMINI_API_KEY:
+                if not client:
                     tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình xong khóa Gemini."
                 else:
                     try:
@@ -100,9 +99,9 @@ def webhook():
                             f"Khách hỏi: {noi_dung}"
                         )
                         
-                        # === Gọi AI theo cách mới ===
+                        # === Gọi AI theo CÁCH MỚI ===
                         response = client.models.generate_content(
-                            model=model_name,
+                            model=MODEL_NAME,
                             contents=cau_hoi
                         )
                         tra_loi = response.text.strip()
