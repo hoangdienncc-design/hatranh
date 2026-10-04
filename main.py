@@ -20,6 +20,7 @@ else:
 
 if not GEMINI_API_KEY:
     print("❌ GEMINI_API_KEY chưa đặt!")
+    model = None
 else:
     print("✅ GEMINI_API_KEY: OK")
     genai.configure(api_key=GEMINI_API_KEY)
@@ -47,12 +48,12 @@ def delete_data():
     return "<h1>Yêu cầu xóa dữ liệu</h1><p>Liên hệ: hoangdienncc@gmail.com</p>", 200
 
 # ==========================================
-# WEBHOOK — ĐÃ SỬA LỖI NHẬN TIN NHẮN
+# WEBHOOK — ĐÃ SỬA HOÀN CHỈNH
 # ==========================================
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     print(f"=== Yêu cầu đến /webhook | Phương thức: {request.method} ===")
-
+    
     if request.method == "GET":
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
@@ -68,64 +69,80 @@ def webhook():
     data = request.get_json()
     print(f"📩 Dữ liệu đầy đủ: {data}")
 
-    if data.get("object") == "page":
-        for entry in data.get("entry", []):
-            for evt in entry.get("messaging", []):
-                sender_id = evt.get("sender", {}).get("id")
-                message = evt.get("message", {})
-                
-                # Bỏ qua tin nhắn do chính bot gửi
-                if message.get("is_echo"):
-                    print("ℹ️ Bỏ qua tin nhắn từ chính bot")
-                    return "OK", 200
-                
-                # === SỬA: Nhận tin nhắn chính xác hơn ===
-                message_text = message.get("text")
-                print(f"💬 Nội dung tin nhắn: [{message_text}]")
+    if not data or data.get("object") != "page":
+        return "Không phải sự kiện Trang", 200
 
-                if message_text and isinstance(message_text, str) and message_text.strip():
-                    noi_dung = message_text.strip()
-                    print(f"✅ Xử lý câu hỏi: {noi_dung}")
-                    
-                    # Gọi AI
+    for entry in data.get("entry", []):
+        messaging_list = entry.get("messaging", [])
+        for evt in messaging_list:
+            sender_id = evt.get("sender", {}).get("id")
+            message = evt.get("message", {})
+
+            # Bỏ qua tin nhắn do chính bot gửi
+            if message.get("is_echo", False):
+                print("ℹ️ Bỏ qua tin nhắn từ chính bot")
+                continue
+
+            # === ĐỌC NỘI DUNG CHÍNH XÁC ===
+            message_text = message.get("text") or ""
+            print(f"💬 Nội dung nhận được: [{message_text}]")
+
+            if message_text.strip():
+                noi_dung = message_text.strip()
+                print(f"✅ Xử lý câu hỏi: {noi_dung}")
+
+                # Kiểm tra model sẵn sàng
+                if not model:
+                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình xong khóa Gemini."
+                else:
                     try:
+                        # Tạo phiên hội thoại nếu chưa có
                         if sender_id not in chat_sessions:
                             chat_sessions[sender_id] = model.start_chat(history=[])
-                        
+
                         cau_hoi = (
                             "Bạn là chuyên gia tư vấn đầu tư, đấu thầu và pháp lý doanh nghiệp. "
                             "Trả lời ngắn gọn, rõ ràng, lịch sự bằng tiếng Việt chuẩn.\n\n"
                             f"Khách hỏi: {noi_dung}"
                         )
+
                         phan_hoi = chat_sessions[sender_id].send_message(cau_hoi)
                         tra_loi = phan_hoi.text.strip()
-                        print(f"🤖 Trả lời: {tra_loi}")
+                        print(f"🤖 Trả lời AI: {tra_loi}")
+
                     except Exception as e:
-                        tra_loi = f"Xin lỗi, có lỗi xảy ra: {str(e)}"
+                        tra_loi = f"Xin lỗi, có lỗi xử lý: {str(e)}"
                         print(f"❌ Lỗi AI: {e}")
 
-                    # Gửi trả lời
-                    gui_ket_qua = gui_tin_facebook(sender_id, tra_loi)
-                    print(f"📤 Kết quả gửi: {gui_ket_qua}")
-                else:
-                    # Không có nội dung chữ
-                    gui_tin_facebook(sender_id, "Tôi chưa xem được ảnh/file. Bạn vui lòng gõ chữ hỏi nhé 😊")
+                # Gửi trả lời về Facebook
+                gui_ket_qua = gui_tin_facebook(sender_id, tra_loi)
+                print(f"📤 Kết quả gửi: {gui_ket_qua}")
+
+            else:
+                # Không có nội dung chữ
+                gui_tin_facebook(sender_id, "Tôi chỉ hiểu nội dung chữ thôi. Bạn vui lòng gõ câu hỏi nhé 😊")
+
     return "EVENT_RECEIVED", 200
 
 # ==========================================
 # GỬI TIN NHẮN VỀ FACEBOOK
 # ==========================================
 def gui_tin_facebook(nguoi_nhan_id, noi_dung):
+    if not PAGE_ACCESS_TOKEN:
+        return "❌ PAGE_ACCESS_TOKEN chưa cấu hình"
+
     url = f"https://graph.facebook.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
     du_lieu = {
         "recipient": {"id": nguoi_nhan_id},
         "message": {"text": noi_dung}
     }
+
     try:
         res = requests.post(url, json=du_lieu, timeout=10)
+        print(f"📡 Phản hồi Facebook: Mã {res.status_code} | {res.text[:200]}")
         return f"Thành công - Mã: {res.status_code}"
     except Exception as e:
-        return f"Lỗi: {str(e)}"
+        return f"Lỗi gửi: {str(e)}"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
