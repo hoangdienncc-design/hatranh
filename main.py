@@ -23,9 +23,9 @@ if not GEMINI_API_KEY:
     model = None
 else:
     print("✅ GEMINI_API_KEY: OK")
-    genai.configure(api_key=GEMINI_API_KEY)
-    # Sửa tên mô hình cho đúng
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    # === SỬA: Cách dùng thư viện mới ===
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    model_name = "gemini-2.0-flash"
 
 chat_sessions = {}
 
@@ -90,21 +90,22 @@ def webhook():
                 noi_dung = message_text.strip()
                 print(f"✅ Xử lý câu hỏi: {noi_dung}")
 
-                if not model:
-                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình xong."
+                if not GEMINI_API_KEY:
+                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình xong khóa Gemini."
                 else:
                     try:
-                        if sender_id not in chat_sessions:
-                            chat_sessions[sender_id] = model.start_chat(history=[])
-
                         cau_hoi = (
                             "Bạn là chuyên gia tư vấn đầu tư, đấu thầu và pháp lý doanh nghiệp. "
                             "Trả lời ngắn gọn, rõ ràng, lịch sự bằng tiếng Việt chuẩn.\n\n"
                             f"Khách hỏi: {noi_dung}"
                         )
-
-                        phan_hoi = chat_sessions[sender_id].send_message(cau_hoi)
-                        tra_loi = phan_hoi.text.strip()
+                        
+                        # === Gọi AI theo cách mới ===
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=cau_hoi
+                        )
+                        tra_loi = response.text.strip()
                         print(f"🤖 Trả lời AI: {tra_loi}")
 
                     except Exception as e:
@@ -134,7 +135,7 @@ def gui_tin_facebook(nguoi_nhan_id, noi_dung):
 
     try:
         res = requests.post(url, json=du_lieu, timeout=10)
-        print(f"📡 Phản hồi Facebook: Mã {res.status_code} | {res.text[:200]}")
+        print(f"📡 Phản hồi Facebook: Mã {res.status_code}")
         return f"Thành công - Mã: {res.status_code}"
     except Exception as e:
         return f"Lỗi gửi: {str(e)}"
