@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request
 import requests
-import google.genai as genai
+from openai import OpenAI
 
 app = Flask(__name__)
 
@@ -10,10 +10,9 @@ app = Flask(__name__)
 # ==========================================
 VERIFY_TOKEN = "ha_tranh_verify_2026"
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-# === Chọn mô hình chắc chắn hoạt động ===
-MODEL_NAME = "gemini-1.5-flash-002"  # Nếu vẫn lỗi → đổi thành "gemini-2.5-flash"
+MODEL_NAME = "gpt-3.5-turbo"
 
 print("=== KIỂM TRA CẤU HÌNH ===")
 if not PAGE_ACCESS_TOKEN:
@@ -22,11 +21,11 @@ else:
     print("✅ PAGE_ACCESS_TOKEN: OK")
 
 client = None
-if not GEMINI_API_KEY:
-    print("❌ GEMINI_API_KEY chưa đặt!")
+if not OPENAI_API_KEY:
+    print("❌ OPENAI_API_KEY chưa đặt!")
 else:
-    print(f"✅ GEMINI_API_KEY: OK | Model: {MODEL_NAME}")
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    print(f"✅ OPENAI_API_KEY: OK | Model: {MODEL_NAME}")
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ==========================================
 # CÁC TRANG
@@ -34,6 +33,10 @@ else:
 @app.route("/", methods=["GET"])
 def home():
     return "✅ Bot HaTranh đang hoạt động!", 200
+
+@app.route("/privacy", methods=["GET"])
+def privacy():
+    return "<h1>Chính sách riêng tư</h1><p>Chỉ thu thập nội dung hội thoại để trả lời.</p>", 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -67,19 +70,25 @@ def webhook():
             if message_text.strip():
                 noi_dung = message_text.strip()
                 if not client:
-                    tra_loi = "Xin lỗi, hệ thống AI chưa sẵn sàng."
+                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình khóa API."
                 else:
                     try:
-                        cau_hoi = (
-                            "Bạn là chuyên gia tư vấn đầu tư, đấu thầu và pháp lý doanh nghiệp. "
-                            "Trả lời ngắn gọn, rõ ràng, lịch sự bằng tiếng Việt chuẩn.\n\n"
-                            f"Khách hỏi: {noi_dung}"
-                        )
-                        response = client.models.generate_content(
+                        response = client.chat.completions.create(
                             model=MODEL_NAME,
-                            contents=cau_hoi
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        "Bạn là chuyên gia tư vấn đầu tư, đấu thầu và pháp lý doanh nghiệp. "
+                                        "Trả lời ngắn gọn, rõ ràng, lịch sự bằng tiếng Việt chuẩn."
+                                    )
+                                },
+                                {"role": "user", "content": noi_dung}
+                            ],
+                            temperature=0.7,
+                            max_tokens=800
                         )
-                        tra_loi = response.text.strip()
+                        tra_loi = response.choices[0].message.content.strip()
                         print(f"🤖 Trả lời AI: {tra_loi}")
                     except Exception as e:
                         tra_loi = f"Xin lỗi, có lỗi: {str(e)[:150]}"
@@ -107,7 +116,7 @@ def gui_tin_facebook(nguoi_nhan_id, noi_dung):
     
     try:
         res = requests.post(url, json=du_lieu, timeout=10)
-        print(f"📡 Facebook: Mã {res.status_code} | {res.text[:200]}")
+        print(f"📡 Facebook: Mã {res.status_code}")
         return f"Mã {res.status_code}"
     except Exception as e:
         return f"Lỗi: {str(e)}"
