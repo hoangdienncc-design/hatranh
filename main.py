@@ -5,14 +5,11 @@ from openai import OpenAI
 
 app = Flask(__name__)
 
-# ==========================================
-# CẤU HÌNH
-# ==========================================
 VERIFY_TOKEN = "ha_tranh_verify_2026"
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")  # ✅ Lấy từ Render, KHÔNG viết trực tiếp
 
-MODEL_NAME = "gpt-3.5-turbo"
+MODEL_NAME = "openai/gpt-3.5-turbo"
 
 print("=== KIỂM TRA CẤU HÌNH ===")
 if not PAGE_ACCESS_TOKEN:
@@ -21,22 +18,18 @@ else:
     print("✅ PAGE_ACCESS_TOKEN: OK")
 
 client = None
-if not OPENAI_API_KEY:
-    print("❌ OPENAI_API_KEY chưa đặt!")
+if not OPENROUTER_KEY:
+    print("❌ OPENROUTER_KEY chưa có!")
 else:
-    print(f"✅ OPENAI_API_KEY: OK | Model: {MODEL_NAME}")
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    print(f"✅ OPENROUTER_KEY: OK | Model: {MODEL_NAME}")
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=OPENROUTER_KEY
+    )
 
-# ==========================================
-# CÁC TRANG
-# ==========================================
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ Bot HaTranh đang hoạt động!", 200
-
-@app.route("/privacy", methods=["GET"])
-def privacy():
-    return "<h1>Chính sách riêng tư</h1><p>Chỉ thu thập nội dung hội thoại để trả lời.</p>", 200
+    return "✅ Bot HaTranh đang hoạt động với OpenRouter!", 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -51,7 +44,6 @@ def webhook():
 
     data = request.get_json()
     print(f"📩 Nhận dữ liệu: {data}")
-
     if not data or data.get("object") != "page":
         return "OK", 200
 
@@ -59,18 +51,15 @@ def webhook():
         for evt in entry.get("messaging", []):
             sender_id = evt.get("sender", {}).get("id")
             message = evt.get("message", {})
-
             if message.get("is_echo", False):
-                print("ℹ️ Bỏ qua tin nhắn từ chính bot")
                 continue
 
-            message_text = message.get("text") or ""
+            message_text = message.get("text", "").strip()
             print(f"💬 Tin nhắn từ {sender_id}: [{message_text}]")
 
-            if message_text.strip():
-                noi_dung = message_text.strip()
+            if message_text:
                 if not client:
-                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình khóa API."
+                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình khóa đúng."
                 else:
                     try:
                         response = client.chat.completions.create(
@@ -80,10 +69,10 @@ def webhook():
                                     "role": "system",
                                     "content": (
                                         "Bạn là chuyên gia tư vấn đầu tư, đấu thầu và pháp lý doanh nghiệp. "
-                                        "Trả lời ngắn gọn, rõ ràng, lịch sự bằng tiếng Việt chuẩn."
+                                        "Trả lời ngắn gọn, lịch sự, dễ hiểu bằng tiếng Việt."
                                     )
                                 },
-                                {"role": "user", "content": noi_dung}
+                                {"role": "user", "content": message_text}
                             ],
                             temperature=0.7,
                             max_tokens=800
@@ -93,29 +82,20 @@ def webhook():
                     except Exception as e:
                         tra_loi = f"Xin lỗi, có lỗi: {str(e)[:150]}"
                         print(f"❌ Lỗi AI: {e}")
-
-                gui_ket_qua = gui_tin_facebook(sender_id, tra_loi)
-                print(f"📤 Kết quả gửi: {gui_ket_qua}")
+                gui_tin_facebook(sender_id, tra_loi)
             else:
                 gui_tin_facebook(sender_id, "Tôi chỉ hiểu nội dung chữ thôi. Bạn vui lòng gõ câu hỏi nhé 😊")
-
     return "OK", 200
 
-# ==========================================
-# GỬI TIN NHẮN VỀ FACEBOOK
-# ==========================================
 def gui_tin_facebook(nguoi_nhan_id, noi_dung):
     if not PAGE_ACCESS_TOKEN:
         return "❌ PAGE_ACCESS_TOKEN trống"
-    
     url = f"https://graph.facebook.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
-    du_lieu = {
-        "recipient": {"id": nguoi_nhan_id},
-        "message": {"text": noi_dung[:2000]}
-    }
-    
     try:
-        res = requests.post(url, json=du_lieu, timeout=10)
+        res = requests.post(url, json={
+            "recipient": {"id": nguoi_nhan_id},
+            "message": {"text": noi_dung[:2000]}
+        }, timeout=10)
         print(f"📡 Facebook: Mã {res.status_code}")
         return f"Mã {res.status_code}"
     except Exception as e:
