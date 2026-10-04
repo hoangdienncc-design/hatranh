@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = "ha_tranh_verify_2026"
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")  # ✅ Lấy đúng biến
+OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")
 
 MODEL_NAME = "openai/gpt-3.5-turbo"
 
@@ -22,14 +22,17 @@ if not OPENROUTER_KEY:
     print("❌ OPENROUTER_KEY chưa có!")
 else:
     print(f"✅ OPENROUTER_KEY: OK | Model: {MODEL_NAME}")
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",  # ✅ Đúng đường dẫn OpenRouter
-        api_key=OPENROUTER_KEY
-    )
+    try:
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=OPENROUTER_KEY
+        )
+    except Exception as e:
+        print(f"❌ Lỗi khởi tạo client: {e}")
 
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ Bot HaTranh đang hoạt động với OpenRouter!", 200
+    return "✅ Bot HaTranh đang hoạt động!", 200
 
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -59,7 +62,7 @@ def webhook():
 
             if message_text:
                 if not client:
-                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình khóa đúng."
+                    tra_loi = "Xin lỗi, hệ thống chưa cấu hình đúng khóa API."
                 else:
                     try:
                         response = client.chat.completions.create(
@@ -80,7 +83,7 @@ def webhook():
                         tra_loi = response.choices[0].message.content.strip()
                         print(f"🤖 Trả lời AI: {tra_loi}")
                     except Exception as e:
-                        tra_loi = f"Xin lỗi, có lỗi: {str(e)[:150]}"
+                        tra_loi = f"Xin lỗi, có lỗi: {str(e)[:200]}"
                         print(f"❌ Lỗi AI: {e}")
                 gui_tin_facebook(sender_id, tra_loi)
             else:
