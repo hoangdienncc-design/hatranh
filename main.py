@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = "ha_tranh_verify_2026"
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")
+OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")  # ✅ Lấy đúng biến
 
 MODEL_NAME = "openai/gpt-3.5-turbo"
 
@@ -23,7 +23,7 @@ if not OPENROUTER_KEY:
 else:
     print(f"✅ OPENROUTER_KEY: OK | Model: {MODEL_NAME}")
     client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
+        base_url="https://openrouter.ai/api/v1",  # ✅ Đúng đường dẫn OpenRouter
         api_key=OPENROUTER_KEY
     )
 
