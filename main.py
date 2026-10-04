@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request
 import requests
-import google.generativeai as genai
+import google.genai as genai
 
 app = Flask(__name__)
 
@@ -24,7 +24,8 @@ if not GEMINI_API_KEY:
 else:
     print("✅ GEMINI_API_KEY: OK")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    # Sửa tên mô hình cho đúng
+    model = genai.GenerativeModel("gemini-2.0-flash")
 
 chat_sessions = {}
 
@@ -48,7 +49,7 @@ def delete_data():
     return "<h1>Yêu cầu xóa dữ liệu</h1><p>Liên hệ: hoangdienncc@gmail.com</p>", 200
 
 # ==========================================
-# WEBHOOK — ĐÃ SỬA HOÀN CHỈNH
+# WEBHOOK
 # ==========================================
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
@@ -78,12 +79,10 @@ def webhook():
             sender_id = evt.get("sender", {}).get("id")
             message = evt.get("message", {})
 
-            # Bỏ qua tin nhắn do chính bot gửi
             if message.get("is_echo", False):
                 print("ℹ️ Bỏ qua tin nhắn từ chính bot")
                 continue
 
-            # === ĐỌC NỘI DUNG CHÍNH XÁC ===
             message_text = message.get("text") or ""
             print(f"💬 Nội dung nhận được: [{message_text}]")
 
@@ -91,12 +90,10 @@ def webhook():
                 noi_dung = message_text.strip()
                 print(f"✅ Xử lý câu hỏi: {noi_dung}")
 
-                # Kiểm tra model sẵn sàng
                 if not model:
-                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình xong khóa Gemini."
+                    tra_loi = "Xin lỗi, hệ thống AI chưa cấu hình xong."
                 else:
                     try:
-                        # Tạo phiên hội thoại nếu chưa có
                         if sender_id not in chat_sessions:
                             chat_sessions[sender_id] = model.start_chat(history=[])
 
@@ -114,12 +111,10 @@ def webhook():
                         tra_loi = f"Xin lỗi, có lỗi xử lý: {str(e)}"
                         print(f"❌ Lỗi AI: {e}")
 
-                # Gửi trả lời về Facebook
                 gui_ket_qua = gui_tin_facebook(sender_id, tra_loi)
                 print(f"📤 Kết quả gửi: {gui_ket_qua}")
 
             else:
-                # Không có nội dung chữ
                 gui_tin_facebook(sender_id, "Tôi chỉ hiểu nội dung chữ thôi. Bạn vui lòng gõ câu hỏi nhé 😊")
 
     return "EVENT_RECEIVED", 200
