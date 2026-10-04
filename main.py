@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = "ha_tranh_verify_2026"
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")  # ✅ Lấy từ Render, KHÔNG viết trực tiếp
+OPENROUTER_KEY = os.environ.get("OPENROUTER_KEY")
 
 MODEL_NAME = "openai/gpt-3.5-turbo"
 
