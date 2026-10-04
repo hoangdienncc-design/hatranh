@@ -22,13 +22,10 @@ if not OPENROUTER_KEY:
     print("❌ OPENROUTER_KEY chưa có!")
 else:
     print(f"✅ OPENROUTER_KEY: OK | Model: {MODEL_NAME}")
-    try:
-        client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=OPENROUTER_KEY
-        )
-    except Exception as e:
-        print(f"❌ Lỗi khởi tạo client: {e}")
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=OPENROUTER_KEY
+    )
 
 @app.route("/", methods=["GET"])
 def home():
@@ -61,38 +58,33 @@ def webhook():
             print(f"💬 Tin nhắn từ {sender_id}: [{message_text}]")
 
             if message_text:
-                if not client:
-                    tra_loi = "Xin lỗi, hệ thống chưa cấu hình đúng khóa API."
-                else:
-                    try:
-                        response = client.chat.completions.create(
-                            model=MODEL_NAME,
-                            messages=[
-                                {
-                                    "role": "system",
-                                    "content": (
-                                        "Bạn là chuyên gia tư vấn đầu tư, đấu thầu và pháp lý doanh nghiệp. "
-                                        "Trả lời ngắn gọn, lịch sự, dễ hiểu bằng tiếng Việt."
-                                    )
-                                },
-                                {"role": "user", "content": message_text}
-                            ],
-                            temperature=0.7,
-                            max_tokens=800
-                        )
-                        tra_loi = response.choices[0].message.content.strip()
-                        print(f"🤖 Trả lời AI: {tra_loi}")
-                    except Exception as e:
-                        tra_loi = f"Xin lỗi, có lỗi: {str(e)[:200]}"
-                        print(f"❌ Lỗi AI: {e}")
+                try:
+                    response = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    "Bạn là chuyên gia tư vấn đầu tư, đấu thầu và pháp lý doanh nghiệp. "
+                                    "Trả lời ngắn gọn, lịch sự, dễ hiểu bằng tiếng Việt."
+                                )
+                            },
+                            {"role": "user", "content": message_text}
+                        ],
+                        temperature=0.7,
+                        max_tokens=800
+                    )
+                    tra_loi = response.choices[0].message.content.strip()
+                    print(f"🤖 Trả lời AI: {tra_loi}")
+                except Exception as e:
+                    tra_loi = f"Xin lỗi, có lỗi: {str(e)[:200]}"
+                    print(f"❌ Lỗi AI: {e}")
                 gui_tin_facebook(sender_id, tra_loi)
             else:
                 gui_tin_facebook(sender_id, "Tôi chỉ hiểu nội dung chữ thôi. Bạn vui lòng gõ câu hỏi nhé 😊")
     return "OK", 200
 
 def gui_tin_facebook(nguoi_nhan_id, noi_dung):
-    if not PAGE_ACCESS_TOKEN:
-        return "❌ PAGE_ACCESS_TOKEN trống"
     url = f"https://graph.facebook.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
     try:
         res = requests.post(url, json={
@@ -100,9 +92,8 @@ def gui_tin_facebook(nguoi_nhan_id, noi_dung):
             "message": {"text": noi_dung[:2000]}
         }, timeout=10)
         print(f"📡 Facebook: Mã {res.status_code}")
-        return f"Mã {res.status_code}"
     except Exception as e:
-        return f"Lỗi: {str(e)}"
+        print(f"❌ Lỗi gửi FB: {e}")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
